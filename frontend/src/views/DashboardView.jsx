@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import LineChart from '../graphs/LineChart';
+import BarChart from '../graphs/BarChart'; // Import the new BarChart component
 import { TrendingUp, BarChart3, PieChart } from 'lucide-react';
 
 const DashboardView = ({ cleanedFilePath, resetState }) => {
@@ -10,7 +11,8 @@ const DashboardView = ({ cleanedFilePath, resetState }) => {
             case 'line':
                 return <LineChart cleanedFilePath={cleanedFilePath} />;
             case 'bar':
-                 return <div className="bg-slate-800/50 border border-slate-700 p-4 rounded-b-xl text-center text-slate-400">Bar chart configuration coming soon!</div>;
+                // Add the case to render the BarChart component
+                return <BarChart cleanedFilePath={cleanedFilePath} />;
             case 'pie':
                  return <div className="bg-slate-800/50 border border-slate-700 p-4 rounded-b-xl text-center text-slate-400">Pie chart configuration coming soon!</div>;
             default:

@@ -1,26 +1,27 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Line } from 'react-chartjs-2';
-import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
+import { Bar } from 'react-chartjs-2';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
 import { Download, Expand, X } from 'lucide-react';
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
+// NOTE: We register BarElement here instead of LineElement
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
-const LineChart = ({ cleanedFilePath }) => {
+const BarChart = ({ cleanedFilePath }) => {
     const [columns, setColumns] = useState([]);
     const [numericColumns, setNumericColumns] = useState([]);
     const [xAxis, setXAxis] = useState('');
     const [yAxis, setYAxis] = useState('');
     const [chartData, setChartData] = useState(null);
     const [error, setError] = useState('');
-    const [isModalOpen, setIsModalOpen] = useState(false); // State for fullscreen modal
-    const chartRef = useRef(null); // Ref to access the chart instance for download
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const chartRef = useRef(null);
 
     const chartOptions = {
         maintainAspectRatio: false,
         responsive: true,
         plugins: {
             legend: { labels: { color: '#e2e8f0' } },
-            title: { display: true, text: yAxis && xAxis ? `${yAxis} by ${xAxis}` : 'Line Chart', color: '#e2e8f0', font: { size: 16 } }
+            title: { display: true, text: yAxis && xAxis ? `${yAxis} by ${xAxis}` : 'Bar Chart', color: '#e2e8f0', font: { size: 16 } }
         },
         scales: {
             x: { ticks: { color: '#94a3b8' }, grid: { color: '#475569' } },
@@ -31,7 +32,7 @@ const LineChart = ({ cleanedFilePath }) => {
     useEffect(() => {
         const fetchColumnInfo = async () => {
             if (!cleanedFilePath) return;
-            setError(''); // BUG FIX: Clear error on new load
+            setError('');
             try {
                 const response = await fetch(`http://127.0.0.1:8000/api/get_cleaned_data_info?filepath=${cleanedFilePath}`);
                 if (!response.ok) throw new Error('Failed to fetch column info.');
@@ -39,7 +40,7 @@ const LineChart = ({ cleanedFilePath }) => {
                 setColumns(data.columns);
                 setNumericColumns(data.numeric_columns);
             } catch (err) {
-                setError(err.message);
+                setError('Failed to fetch: Could not load column data from the server.');
             }
         };
         fetchColumnInfo();
@@ -48,45 +49,51 @@ const LineChart = ({ cleanedFilePath }) => {
     useEffect(() => {
         const fetchGraphData = async () => {
             if (xAxis && yAxis) {
-                setError(''); // BUG FIX: Clear previous errors before a new request
-                setChartData(null); // Clear previous chart data
+                setError('');
+                setChartData(null);
                 try {
                     const response = await fetch(`http://127.0.0.1:8000/api/get_graph_data?filepath=${cleanedFilePath}&x_axis=${xAxis}&y_axis=${yAxis}`);
+                    
                     if (!response.ok) {
-                        const errData = await response.json(); // BUG FIX: Get detailed error from backend
-                        throw new Error(errData.detail || 'Failed to fetch graph data.');
+                        const errData = await response.json().catch(() => null);
+                        throw new Error(errData?.detail || `Server error: ${response.statusText}`);
                     }
+                    
                     const data = await response.json();
                     setChartData({
                         labels: data.labels,
                         datasets: [{
                             label: `${yAxis} by ${xAxis}`,
                             data: data.data,
-                            borderColor: 'rgb(129, 140, 248)',
-                            backgroundColor: 'rgba(129, 140, 248, 0.5)',
-                            tension: 0.1
+                            // Different colors for the bar chart
+                            borderColor: 'rgb(34, 197, 94)',
+                            backgroundColor: 'rgba(34, 197, 94, 0.5)',
                         }],
                     });
                 } catch (err) {
-                    setError(err.message);
+                    if (err.message.includes('Failed to fetch')) {
+                         setError('Failed to fetch: Cannot connect to the backend server.');
+                    } else {
+                         setError(err.message);
+                    }
                 }
             }
         };
         fetchGraphData();
     }, [xAxis, yAxis, cleanedFilePath]);
 
-    // FEATURE: Handler for downloading the chart as a JPG
     const handleDownload = () => {
         if (chartRef.current) {
             const link = document.createElement('a');
             link.href = chartRef.current.toBase64Image('image/jpeg', 1);
-            link.download = `line_chart_${yAxis}_by_${xAxis}.jpg`;
+            link.download = `bar_chart_${yAxis}_by_${xAxis}.jpg`;
             link.click();
         }
     };
 
+    // NOTE: This renders a <Bar /> component instead of <Line />
     const renderChart = () => (
-        chartData ? <Line ref={chartRef} data={chartData} options={chartOptions} /> : 
+        chartData ? <Bar ref={chartRef} data={chartData} options={chartOptions} /> : 
         <div className="flex items-center justify-center h-full text-slate-500">Please select X and Y axes to generate the chart.</div>
     );
 
@@ -121,7 +128,6 @@ const LineChart = ({ cleanedFilePath }) => {
                 )}
             </div>
 
-            {/* FEATURE: Fullscreen Modal */}
             {isModalOpen && (
                 <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                     <div className="w-full h-full p-8 relative">
@@ -134,4 +140,4 @@ const LineChart = ({ cleanedFilePath }) => {
     );
 };
 
-export default LineChart;
+export default BarChart;

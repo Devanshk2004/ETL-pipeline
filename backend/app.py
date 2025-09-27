@@ -94,16 +94,22 @@ async def get_graph_data(filepath: str = Query(...), x_axis: str = Query(...), y
         if x_axis not in df.columns or y_axis not in df.columns:
             raise HTTPException(status_code=400, detail="Invalid columns specified.")
         
+        # BUG FIX: Add validation to ensure the Y-axis is a numeric type
+        if not pd.api.types.is_numeric_dtype(df[y_axis]):
+            raise HTTPException(status_code=400, detail=f"Wrong Input: Y-axis ('{y_axis}') must be a numeric column.")
+
         if pd.api.types.is_numeric_dtype(df[x_axis]):
             df = df.sort_values(by=x_axis)
 
-        # FIX: Fill any missing numeric values with 0 instead of None
         y_data = df[y_axis].fillna(0).tolist()
 
         chart_data = {
             "labels": df[x_axis].tolist(),
-            "data": y_data # This list is now guaranteed to have numbers
+            "data": y_data
         }
         return chart_data
     except Exception as e:
+        # Re-raise HTTP exceptions, otherwise wrap other errors
+        if isinstance(e, HTTPException):
+            raise e
         raise HTTPException(status_code=500, detail=f"Error fetching graph data: {e}")
