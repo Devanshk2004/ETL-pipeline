@@ -71,19 +71,14 @@ async def save_cleaned_data(payload: Dict[str, Any] = Body(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error saving file: {e}")
 
-# --- NEW VISUALIZATION ENDPOINTS ---
-
 @app.get("/api/get_cleaned_data_info")
 async def get_cleaned_data_info(filepath: str = Query(...)):
-    """
-    Reads a cleaned CSV and returns its column names and which columns are numeric.
-    """
-    if not os.path.exists(filepath):
-        raise HTTPException(status_code=404, detail="File not found.")
+    safe_filepath = filepath.replace('\\', '/')
+    if not os.path.exists(safe_filepath):
+        raise HTTPException(status_code=404, detail=f"File not found at: {safe_filepath}")
     try:
-        df = pd.read_csv(filepath)
+        df = pd.read_csv(safe_filepath)
         all_columns = df.columns.tolist()
-        # Identify numeric columns (integers and floats)
         numeric_columns = df.select_dtypes(include='number').columns.tolist()
         return {"columns": all_columns, "numeric_columns": numeric_columns}
     except Exception as e:
@@ -91,23 +86,23 @@ async def get_cleaned_data_info(filepath: str = Query(...)):
 
 @app.get("/api/get_graph_data")
 async def get_graph_data(filepath: str = Query(...), x_axis: str = Query(...), y_axis: str = Query(...)):
-    """
-    Returns the data for the specified X and Y axis columns for plotting.
-    """
-    if not os.path.exists(filepath):
-        raise HTTPException(status_code=404, detail="File not found.")
+    safe_filepath = filepath.replace('\\', '/')
+    if not os.path.exists(safe_filepath):
+        raise HTTPException(status_code=404, detail=f"File not found at: {safe_filepath}")
     try:
-        df = pd.read_csv(filepath)
+        df = pd.read_csv(safe_filepath)
         if x_axis not in df.columns or y_axis not in df.columns:
             raise HTTPException(status_code=400, detail="Invalid columns specified.")
         
-        # Sort by X-axis if it's numeric, otherwise just return as is
         if pd.api.types.is_numeric_dtype(df[x_axis]):
             df = df.sort_values(by=x_axis)
 
+        # FIX: Fill any missing numeric values with 0 instead of None
+        y_data = df[y_axis].fillna(0).tolist()
+
         chart_data = {
             "labels": df[x_axis].tolist(),
-            "data": df[y_axis].tolist()
+            "data": y_data # This list is now guaranteed to have numbers
         }
         return chart_data
     except Exception as e:
