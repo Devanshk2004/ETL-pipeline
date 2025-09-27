@@ -3,7 +3,7 @@ import DataTable from '../components/DataTable';
 import CsvView from '../components/CsvView';
 import { Monitor, FileText, Bot } from 'lucide-react';
 
-const ResultView = ({ columns, cleanedData, tableView, setTableView, resetState }) => {
+const ResultView = ({ columns, cleanedData, tableView, setTableView, resetState, setView }) => {
     return (
         <div className="w-full">
             <div className="flex justify-between items-center mb-4">
@@ -25,7 +25,8 @@ const ResultView = ({ columns, cleanedData, tableView, setTableView, resetState 
             )}
             
              <div className="mt-8 flex flex-col md:flex-row gap-4 justify-center items-center">
-                <button disabled className="flex items-center gap-2 text-white font-bold py-3 px-8 rounded-lg bg-purple-600 hover:bg-purple-500 transition-colors shadow-lg shadow-purple-900/50">
+                {/* This button now changes the view to 'dashboard' */}
+                <button onClick={() => setView('dashboard')} className="flex items-center gap-2 text-white font-bold py-3 px-8 rounded-lg bg-purple-600 hover:bg-purple-500 transition-colors shadow-lg shadow-purple-900/50">
                     <Bot size={20}/> Visualize
                 </button>
                 <button onClick={resetState} className="text-slate-400 hover:text-slate-200">or Start Over</button>

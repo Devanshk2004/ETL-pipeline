@@ -1,26 +1,28 @@
 import React, { useState } from 'react';
 
-// Import the new views
 import UploadView from './views/UploadView.jsx';
 import CleanView from './views/CleanView.jsx';
 import ResultView from './views/ResultView.jsx';
+import DashboardView from './views/DashboardView.jsx'; // Import the new dashboard
 
 function App() {
     // --- STATE MANAGEMENT ---
-    // All state now lives in the main App component
+    // All the application's memory lives here
     const [file, setFile] = useState(null);
     const [columns, setColumns] = useState([]);
     const [goodRows, setGoodRows] = useState([]);
     const [badRows, setBadRows] = useState([]);
     const [cleanedData, setCleanedData] = useState([]);
-    const [view, setView] = useState('upload'); // 'upload', 'clean', 'result'
-    const [tableView, setTableView] = useState('modern'); // 'modern', 'csv'
+    const [view, setView] = useState('upload'); // Controls which page is shown: 'upload', 'clean', 'result', or 'dashboard'
+    const [tableView, setTableView] = useState('modern');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [isDirty, setIsDirty] = useState(false);
+    const [cleanedFilePath, setCleanedFilePath] = useState(''); // Stores the path to the saved file for the dashboard
 
     // --- HANDLER FUNCTIONS ---
-    // All logic functions also live here and are passed down as props
+    // All the logic for what happens when you click buttons lives here
+
     const handleFileChange = (e) => {
         const selectedFile = e.target.files[0];
         if (selectedFile && selectedFile.type === 'text/csv') {
@@ -36,10 +38,8 @@ function App() {
         if (!file) return;
         setIsLoading(true);
         setError('');
-
         const formData = new FormData();
         formData.append('file', file);
-
         try {
             const response = await fetch('http://127.0.0.1:8000/api/analyze', { method: 'POST', body: formData });
             if (!response.ok) {
@@ -51,7 +51,6 @@ function App() {
             setBadRows(result.bad_rows);
             setGoodRows(result.good_rows.map((row, index) => ({ index, data: row })));
             setView('clean');
-
         } catch (err) {
             setError(err.message || 'An error occurred during analysis.');
         } finally {
@@ -67,25 +66,19 @@ function App() {
     const handleSaveOrExecute = async (isBulkExecute) => {
         setIsLoading(true);
         const finalBadRows = isBulkExecute ? [] : badRows;
-        
         const finalCleanedRows = [...goodRows, ...finalBadRows]
             .sort((a, b) => a.index - b.index)
             .map(row => row.data);
-
         setCleanedData(finalCleanedRows.map((row, index) => ({ index, data: row })));
-
         try {
             const response = await fetch('http://127.0.0.1:8000/api/save_cleaned_data', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ columns, cleaned_rows: finalCleanedRows }),
             });
-
-            if (!response.ok) {
-                throw new Error('Failed to save the cleaned data.');
-            }
-            
-            await response.json();
+            if (!response.ok) throw new Error('Failed to save the cleaned data.');
+            const result = await response.json();
+            setCleanedFilePath(result.filepath); // <-- STORE THE FILE PATH FOR THE DASHBOARD
             setView('result');
         } catch (err) {
             setError(err.message);
@@ -105,10 +98,11 @@ function App() {
         setIsLoading(false);
         setError('');
         setIsDirty(false);
+        setCleanedFilePath('');
     };
 
     // --- RENDER LOGIC ---
-    // Decides which view component to show based on the 'view' state
+    // This function decides which component to display based on the current 'view' state
     const renderView = () => {
         switch (view) {
             case 'clean':
@@ -127,6 +121,12 @@ function App() {
                     cleanedData={cleanedData}
                     tableView={tableView}
                     setTableView={setTableView}
+                    resetState={resetState}
+                    setView={setView} // Pass setView to navigate to the dashboard
+                />;
+            case 'dashboard':
+                return <DashboardView
+                    cleanedFilePath={cleanedFilePath}
                     resetState={resetState}
                 />;
             case 'upload':
