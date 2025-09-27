@@ -1,26 +1,26 @@
 import pandas as pd
 import io
-from fastapi import FastAPI, File, UploadFile, HTTPException
+import os
+import datetime
+from fastapi import FastAPI, File, UploadFile, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
+from typing import List, Dict, Any
 
 # Initialize the FastAPI app
 app = FastAPI()
 
 # --- CORS Configuration ---
-# This is crucial for allowing your React frontend (on a different port)
-# to communicate with this backend.
 origins = [
     "http://localhost:3000",
-    "http://localhost:5173",  # Default React development server port
-    # Add other origins if needed, e.g., your production frontend URL
+    "http://localhost:5173",
 ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods (GET, POST, etc.)
-    allow_headers=["*"],  # Allows all headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # --- API Endpoints ---
@@ -34,43 +34,77 @@ def read_root():
 @app.post("/api/analyze")
 async def analyze_csv(file: UploadFile = File(...)):
     """
-    This endpoint accepts a CSV file, analyzes it for rows with missing values,
-    and returns the column headers and the problematic rows.
+    Analyzes a CSV for rows with missing values and separates good and bad rows.
     """
-    # Ensure the uploaded file is a CSV
     if not file.filename.endswith('.csv'):
         raise HTTPException(status_code=400, detail="Invalid file type. Please upload a CSV.")
 
     try:
-        # Read the file content directly into memory
         contents = await file.read()
-        
-        # Use pandas to read the CSV data from the in-memory bytes
         df = pd.read_csv(io.BytesIO(contents))
-
-        # Identify rows with any missing values (NaN/Null)
-        bad_rows_df = df[df.isnull().any(axis=1)].copy()
         
-        # Get the original index for each bad row
-        bad_rows_df['original_index'] = bad_rows_df.index
+        # Store the original data in a temporary file for later use
+        # In a real app, you'd use a more robust session/cache system
+        temp_dir = "temp_files"
+        os.makedirs(temp_dir, exist_ok=True)
+        temp_filepath = os.path.join(temp_dir, file.filename)
+        df.to_csv(temp_filepath, index=False)
 
-        # Convert the bad rows DataFrame to a list of dictionaries
+
+        # Separate good rows and bad rows
+        is_bad = df.isnull().any(axis=1)
+        bad_rows_df = df[is_bad].copy()
+        good_rows_df = df[~is_bad].copy()
+
+        # Format bad rows with original index
+        bad_rows_df['original_index'] = bad_rows_df.index
         bad_rows_list = bad_rows_df.to_dict(orient='records')
         
-        # Structure the response data
-        response_data = []
+        formatted_bad_rows = []
         for row in bad_rows_list:
-            original_index = row.pop('original_index') # Get and remove the index from the dict
-            response_data.append({
+            original_index = row.pop('original_index')
+            formatted_bad_rows.append({
                 "index": original_index,
-                "data": {k: (v if pd.notna(v) else None) for k, v in row.items()} # Clean up NaN values for JSON
+                "data": {k: (v if pd.notna(v) else None) for k, v in row.items()}
             })
 
         return {
             "columns": df.columns.tolist(),
-            "bad_rows": response_data,
+            "bad_rows": formatted_bad_rows,
+            "good_rows": good_rows_df.to_dict(orient='records'),
+            "temp_filename": file.filename # Pass filename back to frontend
         }
 
     except Exception as e:
-        # Handle potential errors during file parsing
         raise HTTPException(status_code=500, detail=f"Error processing file: {e}")
+
+@app.post("/api/save_cleaned_data")
+async def save_cleaned_data(payload: Dict[str, Any] = Body(...)):
+    """
+    Receives the final clean data and saves it to a new CSV file in the 'output' folder.
+    """
+    columns = payload.get("columns")
+    cleaned_rows = payload.get("cleaned_rows")
+    
+    if not columns or cleaned_rows is None:
+        raise HTTPException(status_code=400, detail="Invalid data provided.")
+
+    try:
+        df = pd.DataFrame(cleaned_rows, columns=columns)
+        
+        # Create the output directory if it doesn't exist
+        output_dir = "output"
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # Generate a unique filename
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_filename = f"cleaned_{timestamp}.csv"
+        output_filepath = os.path.join(output_dir, output_filename)
+        
+        # Save the DataFrame to a new CSV file
+        df.to_csv(output_filepath, index=False)
+        
+        return {"message": "File saved successfully!", "filepath": output_filepath}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error saving file: {e}")
