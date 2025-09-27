@@ -34,7 +34,7 @@ def read_root():
 @app.post("/api/analyze")
 async def analyze_csv(file: UploadFile = File(...)):
     """
-    Analyzes a CSV for rows with missing values and separates good and bad rows.
+    Analyzes a CSV for rows with missing values. It NO LONGER saves the original file.
     """
     if not file.filename.endswith('.csv'):
         raise HTTPException(status_code=400, detail="Invalid file type. Please upload a CSV.")
@@ -42,14 +42,6 @@ async def analyze_csv(file: UploadFile = File(...)):
     try:
         contents = await file.read()
         df = pd.read_csv(io.BytesIO(contents))
-        
-        # Store the original data in a temporary file for later use
-        # In a real app, you'd use a more robust session/cache system
-        temp_dir = "temp_files"
-        os.makedirs(temp_dir, exist_ok=True)
-        temp_filepath = os.path.join(temp_dir, file.filename)
-        df.to_csv(temp_filepath, index=False)
-
 
         # Separate good rows and bad rows
         is_bad = df.isnull().any(axis=1)
@@ -72,7 +64,6 @@ async def analyze_csv(file: UploadFile = File(...)):
             "columns": df.columns.tolist(),
             "bad_rows": formatted_bad_rows,
             "good_rows": good_rows_df.to_dict(orient='records'),
-            "temp_filename": file.filename # Pass filename back to frontend
         }
 
     except Exception as e:
@@ -81,7 +72,7 @@ async def analyze_csv(file: UploadFile = File(...)):
 @app.post("/api/save_cleaned_data")
 async def save_cleaned_data(payload: Dict[str, Any] = Body(...)):
     """
-    Receives the final clean data and saves it to a new CSV file in the 'output' folder.
+    Receives the final clean data and saves it to a new CSV file in the 'cleaned_files' folder.
     """
     columns = payload.get("columns")
     cleaned_rows = payload.get("cleaned_rows")
@@ -93,7 +84,7 @@ async def save_cleaned_data(payload: Dict[str, Any] = Body(...)):
         df = pd.DataFrame(cleaned_rows, columns=columns)
         
         # Create the output directory if it doesn't exist
-        output_dir = "output"
+        output_dir = "cleaned_files" # Renamed for clarity
         os.makedirs(output_dir, exist_ok=True)
         
         # Generate a unique filename
@@ -104,7 +95,7 @@ async def save_cleaned_data(payload: Dict[str, Any] = Body(...)):
         # Save the DataFrame to a new CSV file
         df.to_csv(output_filepath, index=False)
         
-        return {"message": "File saved successfully!", "filepath": output_filepath}
+        return {"message": "Cleaned file saved successfully!", "filepath": output_filepath}
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error saving file: {e}")
