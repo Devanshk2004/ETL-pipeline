@@ -1,22 +1,23 @@
 import React, { useState } from 'react';
-import LineChart from '../graphs/LineChart';
-import BarChart from '../graphs/BarChart'; // Import the new BarChart component
-import { TrendingUp, BarChart3, PieChart } from 'lucide-react';
+import LineChart from '../graphs/LineChart.jsx';
+import BarChart from '../graphs/BarChart.jsx';
+import PieChart from '../graphs/PieChart.jsx'; // Import the new PieChart component
+import { TrendingUp, BarChart3, PieChart as PieIcon } from 'lucide-react'; // Renamed PieChart to avoid a naming conflict
 
 const DashboardView = ({ cleanedFilePath, resetState }) => {
     const [activeGraph, setActiveGraph] = useState(null); // 'line', 'bar', or 'pie'
 
+    // This function decides which chart configuration to show based on the activeGraph state
     const renderGraphConfig = () => {
         switch (activeGraph) {
             case 'line':
                 return <LineChart cleanedFilePath={cleanedFilePath} />;
             case 'bar':
-                // Add the case to render the BarChart component
                 return <BarChart cleanedFilePath={cleanedFilePath} />;
             case 'pie':
-                 return <div className="bg-slate-800/50 border border-slate-700 p-4 rounded-b-xl text-center text-slate-400">Pie chart configuration coming soon!</div>;
+                return <PieChart cleanedFilePath={cleanedFilePath} />;
             default:
-                return null;
+                return null; // Don't show anything if no graph is selected
         }
     };
 
@@ -45,7 +46,7 @@ const DashboardView = ({ cleanedFilePath, resetState }) => {
                 {/* Pie Chart Option */}
                  <div className="rounded-xl overflow-hidden">
                     <button onClick={() => setActiveGraph(activeGraph === 'pie' ? null : 'pie')} className="w-full h-40 bg-slate-800 hover:bg-slate-700/50 transition-colors p-6 flex items-end justify-end relative border border-slate-700">
-                        <PieChart size={80} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-slate-700" />
+                        <PieIcon size={80} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-slate-700" />
                         <span className="text-xl font-semibold text-slate-200 z-10">Pie Chart</span>
                     </button>
                     {activeGraph === 'pie' && renderGraphConfig()}
