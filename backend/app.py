@@ -10,7 +10,8 @@ app = FastAPI()
 # This is crucial for allowing your React frontend (on a different port)
 # to communicate with this backend.
 origins = [
-    "http://localhost:3000",  # Default React development server port
+    "http://localhost:3000",
+    "http://localhost:5173",  # Default React development server port
     # Add other origins if needed, e.g., your production frontend URL
 ]
 

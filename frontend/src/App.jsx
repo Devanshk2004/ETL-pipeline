@@ -124,7 +124,7 @@ function App() {
         <div className="bg-slate-900 min-h-screen font-sans text-slate-300">
             <div className="container mx-auto p-4 md:p-8">
                 <header className="text-center mb-10">
-                    <h1 className="text-4xl font-bold text-slate-100">ETL Data Cleaner</h1>
+                    <h1 className="text-4xl font-bold text-slate-100">Data Cleaner and Visualizer</h1>
                     <p className="text-slate-400 mt-2">Upload, analyze, and clean your CSV data in a few simple steps.</p>
                 </header>
 
